@@ -1,0 +1,30 @@
+{
+    "name": "macsoft/facturacion-contrato",
+    "description": "Contrato compartido para la emisión electrónica: DTOs y enums que hablan FacturaMac y los sistemas que emiten a través de él.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5 || ^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "MacSoft\\Facturacion\\Contrato\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "MacSoft\\Facturacion\\Contrato\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit"
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
