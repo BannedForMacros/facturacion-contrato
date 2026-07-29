@@ -26,6 +26,12 @@ final readonly class Respuesta
         public array $avisos = [],
         public ?string $referenciaExterna = null,
         public ?string $motivo = null,
+        /**
+         * Qué respondió SUNAT. Sin esto, un rechazo llega como un estado
+         * `rechazado` a secas y el motivo se pierde: la cajera ve el fallo y
+         * nadie sabe si fue un RUC inexistente o una serie no autorizada.
+         */
+        public ?ResultadoSunat $sunat = null,
         /** true si la petición se absorbió por idempotencia y NO se emitió nada nuevo. */
         public bool $reutilizado = false,
     ) {}
@@ -76,6 +82,9 @@ final readonly class Respuesta
             ),
             referenciaExterna: $datos['referencia_externa'] ?? null,
             motivo: $datos['motivo'] ?? null,
+            sunat: isset($datos['sunat']) && is_array($datos['sunat'])
+                ? ResultadoSunat::desdeArray($datos['sunat'])
+                : null,
             reutilizado: (bool) ($datos['reutilizado'] ?? false),
         );
     }
@@ -95,6 +104,7 @@ final readonly class Respuesta
             'avisos'             => array_map(static fn (Aviso $a) => $a->aArray(), $this->avisos),
             'referencia_externa' => $this->referenciaExterna,
             'motivo'             => $this->motivo,
+            'sunat'              => $this->sunat && ! $this->sunat->estaVacio() ? $this->sunat->aArray() : null,
             'reutilizado'        => $this->reutilizado,
         ], static fn ($v) => $v !== null);
     }
