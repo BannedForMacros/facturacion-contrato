@@ -139,7 +139,20 @@ final readonly class Venta
             idempotencyKey: (string) ($datos['idempotency_key'] ?? ''),
             referenciaExterna: (string) ($datos['referencia_externa'] ?? ''),
             cliente: Cliente::desdeArray($datos['cliente'] ?? []),
-            items: array_map(static fn (array $i) => Item::desdeArray($i), array_values($datos['items'])),
+            // Se comprueba antes de mapear: un item que no es un objeto daría un
+            // TypeError crudo, y el contrato promete que lo inválido sale siempre como
+            // ContratoInvalidoException con su campo.
+            items: array_map(
+                static function (mixed $i, int $n): Item {
+                    if (! is_array($i)) {
+                        throw ContratoInvalidoException::campo("items.{$n}", 'Cada línea debe ser un objeto.');
+                    }
+
+                    return Item::desdeArray($i);
+                },
+                array_values($datos['items']),
+                array_keys(array_values($datos['items'])),
+            ),
             total: (float) ($datos['total'] ?? 0),
             tipo: TipoComprobante::from($tipo),
             fechaEmision: $fecha,

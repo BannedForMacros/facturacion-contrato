@@ -47,14 +47,26 @@ final readonly class Respuesta
             ? EstadoComprobante::tryFrom($datos['estado'])
             : null;
 
+        $comprobante = null;
+
+        if (isset($datos['comprobante']) && is_array($datos['comprobante'])) {
+            $bruto = $datos['comprobante'];
+
+            // §4.1 del contrato pone `enlaces` en la RAÍZ de la respuesta, mientras que
+            // aquí viven con el comprobante, que es a lo que pertenecen. Se aceptan en
+            // los dos sitios: leer solo uno hace desaparecer en silencio los enlaces al
+            // PDF y al XML, y ese es justo el dato que la caja necesita para reimprimir.
+            $bruto['enlaces'] ??= $datos['enlaces'] ?? [];
+
+            $comprobante = Comprobante::desdeArray($bruto);
+        }
+
         return new self(
             emitido: (bool) ($datos['emitido'] ?? true),
             modo: (string) ($datos['modo'] ?? 'produccion'),
             id: isset($datos['id']) ? (int) $datos['id'] : null,
             estado: $estado,
-            comprobante: isset($datos['comprobante']) && is_array($datos['comprobante'])
-                ? Comprobante::desdeArray($datos['comprobante'])
-                : null,
+            comprobante: $comprobante,
             totales: isset($datos['totales']) && is_array($datos['totales'])
                 ? Totales::desdeArray($datos['totales'])
                 : null,
@@ -76,6 +88,9 @@ final readonly class Respuesta
             'id'                 => $this->id,
             'estado'             => $this->estado?->value,
             'comprobante'        => $this->comprobante?->aArray(),
+            // También en la raíz, que es donde §4.1 los describe y donde los busca quien
+            // lea el contrato en vez de esta clase.
+            'enlaces'            => $this->comprobante?->enlaces ?: null,
             'totales'            => $this->totales?->aArray(),
             'avisos'             => array_map(static fn (Aviso $a) => $a->aArray(), $this->avisos),
             'referencia_externa' => $this->referenciaExterna,

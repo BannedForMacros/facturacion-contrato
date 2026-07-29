@@ -62,7 +62,24 @@ final readonly class Documento
             );
         }
 
-        return new self(TipoDocumento::from($tipo), $datos['numero'] ?? null);
+        $numero = $datos['numero'] ?? null;
+
+        // Un RUC en JSON llega como número más veces de las que gustaría (`"numero":
+        // 20601030013`). Sin este casteo, `declare(strict_types=1)` lanzaría un
+        // TypeError crudo en lugar de la excepción del contrato, y el consumidor
+        // perdería el `campo` que le dice dónde está el problema.
+        if (is_int($numero) || is_float($numero)) {
+            $numero = (string) $numero;
+        }
+
+        if ($numero !== null && ! is_string($numero)) {
+            throw ContratoInvalidoException::campo(
+                'cliente.documento.numero',
+                'El número de documento debe ser un texto.',
+            );
+        }
+
+        return new self(TipoDocumento::from($tipo), $numero);
     }
 
     public function aArray(): array
