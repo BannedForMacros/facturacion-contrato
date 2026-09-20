@@ -277,6 +277,53 @@ final class TrasladoTest extends TestCase
         }
     }
 
+    /**
+     * El camión que vuelve vacío después de descargar. Lo declaran de verdad las
+     * empresas que reparten a diario, para que un control no pregunte por qué un
+     * vehículo que amparaba una guía circula sin carga.
+     */
+    #[Test]
+    public function los_indicadores_viajan_con_el_nombre_que_espera_sunat(): void
+    {
+        self::assertSame([], self::privado()->indicadoresSunat());
+
+        self::assertSame(
+            ['SUNAT_Envio_IndicadorRetornoVehiculoVacio'],
+            self::privado(['retornoVehiculoVacio' => true])->indicadoresSunat(),
+        );
+
+        self::assertSame(
+            [
+                'SUNAT_Envio_IndicadorRetornoVehiculoVacio',
+                'SUNAT_Envio_IndicadorRetornoVehiculoEnvaseVacio',
+                'SUNAT_Envio_IndicadorTransbordoProgramado',
+            ],
+            self::privado([
+                'retornoVehiculoVacio' => true,
+                'retornoEnvasesVacios' => true,
+                'transbordoProgramado' => true,
+            ])->indicadoresSunat(),
+        );
+    }
+
+    /**
+     * El nombre exacto vive en un solo sitio a propósito: una letra distinta y SUNAT
+     * ignora el indicador sin decir nada, que es peor que rechazarlo.
+     */
+    #[Test]
+    public function el_de_vehiculo_menor_no_esta_en_esa_tabla(): void
+    {
+        self::assertArrayNotHasKey('vehiculoMenor', Traslado::INDICADORES);
+
+        // Tiene campo propio porque además de declararse EXIME de informar placa y
+        // conductor, que es una consecuencia y no una etiqueta.
+        self::assertSame([], self::privado([
+            'vehiculoMenor' => true,
+            'vehiculo'      => null,
+            'conductores'   => [],
+        ])->indicadoresSunat());
+    }
+
     #[Test]
     public function sobrevive_a_la_ida_y_vuelta(): void
     {

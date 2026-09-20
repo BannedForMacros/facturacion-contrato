@@ -26,6 +26,23 @@ final readonly class Traslado
     /** Unidades en que SUNAT admite el peso de la carga. */
     public const UNIDADES_PESO = ['KGM', 'TNE'];
 
+    /**
+     * Los indicadores que SUNAT reconoce, con el nombre que usa en el XML.
+     *
+     * Se llaman así, en camello y con prefijo, porque es literalmente el texto que
+     * viaja: SUNAT no los codifica, los lee. Aquí se nombran en cristiano para que
+     * quien rellena el formulario no tenga que leer eso.
+     *
+     * El de vehículo menor (M1 o L) NO está en esta tabla: tiene su propio campo
+     * porque además de declararse exime de informar placa y conductor, que es una
+     * consecuencia y no una etiqueta.
+     */
+    public const INDICADORES = [
+        'retornoVehiculoVacio'       => 'SUNAT_Envio_IndicadorRetornoVehiculoVacio',
+        'retornoEnvasesVacios'       => 'SUNAT_Envio_IndicadorRetornoVehiculoEnvaseVacio',
+        'transbordoProgramado'       => 'SUNAT_Envio_IndicadorTransbordoProgramado',
+    ];
+
     /** @param Conductor[] $conductores */
     public function __construct(
         public MotivoTraslado $motivo,
@@ -48,6 +65,18 @@ final readonly class Traslado
          * para cada envío de barrio es fricción pura.
          */
         public bool $vehiculoMenor = false,
+        /**
+         * El camión vuelve vacío después de descargar.
+         *
+         * Es el caso corriente de quien reparte: se declara para que un control de
+         * carretera no pregunte por qué un vehículo que amparaba una guía circula
+         * sin carga. Lo usan de verdad las empresas que despachan a diario.
+         */
+        public bool $retornoVehiculoVacio = false,
+        /** Vuelve con los envases o embalajes vacíos: balones, parihuelas, cajas. */
+        public bool $retornoEnvasesVacios = false,
+        /** El traslado incluye un cambio de vehículo previsto de antemano. */
+        public bool $transbordoProgramado = false,
     ) {
         if ($motivo->exigeDescripcion() && trim((string) $descripcionMotivo) === '') {
             throw ContratoInvalidoException::campo(
@@ -235,6 +264,28 @@ final readonly class Traslado
         return $this->modalidad->exigeVehiculoPropio() && ! $this->vehiculoMenor;
     }
 
+    /**
+     * Los indicadores marcados, con el nombre que SUNAT espera en el XML.
+     *
+     * Se arman aquí y no en el emisor para que el nombre exacto viva en un solo
+     * sitio: una letra distinta y SUNAT ignora el indicador sin decir nada, que es
+     * peor que rechazarlo.
+     *
+     * @return list<string>
+     */
+    public function indicadoresSunat(): array
+    {
+        $marcados = [];
+
+        foreach (self::INDICADORES as $propiedad => $nombre) {
+            if ($this->{$propiedad}) {
+                $marcados[] = $nombre;
+            }
+        }
+
+        return $marcados;
+    }
+
     public static function desdeArray(array $datos): self
     {
         $motivo = $datos['motivo'] ?? null;
@@ -313,6 +364,9 @@ final readonly class Traslado
                 array_keys(array_values($conductores)),
             ),
             vehiculoMenor: (bool) ($datos['vehiculo_menor'] ?? false),
+            retornoVehiculoVacio: (bool) ($datos['retorno_vehiculo_vacio'] ?? false),
+            retornoEnvasesVacios: (bool) ($datos['retorno_envases_vacios'] ?? false),
+            transbordoProgramado: (bool) ($datos['transbordo_programado'] ?? false),
         );
     }
 
@@ -333,7 +387,10 @@ final readonly class Traslado
             'conductores'        => $this->conductores === []
                 ? null
                 : array_map(static fn (Conductor $c) => $c->aArray(), $this->conductores),
-            'vehiculo_menor'     => $this->vehiculoMenor ?: null,
+            'vehiculo_menor'         => $this->vehiculoMenor ?: null,
+            'retorno_vehiculo_vacio' => $this->retornoVehiculoVacio ?: null,
+            'retorno_envases_vacios' => $this->retornoEnvasesVacios ?: null,
+            'transbordo_programado'  => $this->transbordoProgramado ?: null,
         ], static fn ($v) => $v !== null);
     }
 }
