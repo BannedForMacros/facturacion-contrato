@@ -124,6 +124,21 @@ if ($respuesta->estado?->bloqueaAnulacion()) {
 | `Enum\CodigoError` | Catálogo cerrado, con su HTTP y si se reintenta |
 | `Enum\TipoComprobante` · `TipoDocumento` · `Impuesto` · `CondicionPago` · `MotivoNotaCredito` | El vocabulario |
 
+### Guías de remisión
+
+Viven aparte de la venta a propósito: se despacha sin factura y se factura sin despachar,
+una venta puede necesitar tres guías y una guía puede amparar cinco facturas.
+
+| | |
+|---|---|
+| `Dto\Guia` | La guía del remitente. No lleva importes: no es un documento de valor |
+| `Dto\Traslado` | El viaje. Decide entre camioneta propia y flete contratado, y comprueba que no lleguen mezclados |
+| `Dto\Ubicacion` · `Vehiculo` · `Conductor` · `Transportista` | Las piezas del traslado |
+| `Dto\ItemGuia` · `ComprobanteRelacionado` | Qué se mueve y qué comprobantes lo respaldan |
+| `Enum\MotivoTraslado` | Por qué se mueve — y qué campos pide cada motivo |
+| `Enum\ModalidadTraslado` | Quién lo lleva. Se decide guía por guía, no empresa por empresa |
+| `Enum\EstadoGuia` | El semáforo. `permiteTraslado()` es la única pregunta que autoriza a cargar |
+
 ## Tests
 
 ```bash
