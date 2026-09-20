@@ -136,6 +136,7 @@ una venta puede necesitar tres guías y una guía puede amparar cinco facturas.
 | `Dto\Ubicacion` · `Vehiculo` · `Conductor` · `Transportista` | Las piezas del traslado |
 | `Dto\ItemGuia` · `ComprobanteRelacionado` | Qué se mueve y qué comprobantes lo respaldan |
 | `Enum\MotivoTraslado` | Por qué se mueve — y qué campos pide cada motivo |
+| `Enum\ReglaDestinatario` | Quién puede recibir según el motivo. Medido contra SUNAT, no deducido |
 | `Enum\ModalidadTraslado` | Quién lo lleva. Se decide guía por guía, no empresa por empresa |
 | `Enum\EstadoGuia` | El semáforo. `permiteTraslado()` es la única pregunta que autoriza a cargar |
 
