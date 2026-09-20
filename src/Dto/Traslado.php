@@ -87,6 +87,31 @@ final readonly class Traslado
         }
 
         $this->exigirCoherenciaDelTransporte();
+        $this->exigirEstablecimientosSegunMotivo();
+    }
+
+    /**
+     * Un traslado entre locales propios va identificado por códigos, no por calles.
+     *
+     * SUNAT quiere el código del establecimiento anexo tal y como está declarado en
+     * el RUC, en los dos extremos. La dirección sigue yendo, pero por sí sola no
+     * basta: sin el código, este motivo se rechaza.
+     */
+    private function exigirEstablecimientosSegunMotivo(): void
+    {
+        if (! $this->motivo->exigeCodigoEstablecimiento()) {
+            return;
+        }
+
+        foreach (['partida' => $this->partida, 'llegada' => $this->llegada] as $extremo => $ubicacion) {
+            if ($ubicacion->codigoEstablecimiento === null) {
+                throw ContratoInvalidoException::campo(
+                    "traslado.{$extremo}.codigo_establecimiento",
+                    "Un traslado entre establecimientos propios necesita el código del local de {$extremo}, "
+                        . 'el mismo que la empresa tiene declarado en su RUC.',
+                );
+            }
+        }
     }
 
     /**
