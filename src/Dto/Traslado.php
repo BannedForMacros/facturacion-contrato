@@ -91,24 +91,47 @@ final readonly class Traslado
     }
 
     /**
-     * Un traslado entre locales propios va identificado por códigos, no por calles.
+     * Los códigos de establecimiento, donde hacen falta y solo donde caben.
      *
-     * SUNAT quiere el código del establecimiento anexo tal y como está declarado en
-     * el RUC, en los dos extremos. La dirección sigue yendo, pero por sí sola no
-     * basta: sin el código, este motivo se rechaza.
+     * Dos comprobaciones distintas:
+     *
+     *   1. Un traslado entre locales propios los EXIGE en los dos extremos. Sin
+     *      ellos, ese motivo se rechaza.
+     *   2. En los demás, el código solo cabe en el extremo que es de la empresa
+     *      —porque en el XML viaja con su RUC como atributo—. Ponerlo en el otro es
+     *      el error 3411 de SUNAT, y aquí se caza antes de numerar.
      */
     private function exigirEstablecimientosSegunMotivo(): void
     {
-        if (! $this->motivo->exigeCodigoEstablecimiento()) {
+        $extremos = ['partida' => $this->partida, 'llegada' => $this->llegada];
+
+        if ($this->motivo->exigeCodigoEstablecimiento()) {
+            foreach ($extremos as $extremo => $ubicacion) {
+                if ($ubicacion->codigoEstablecimiento === null) {
+                    throw ContratoInvalidoException::campo(
+                        "traslado.{$extremo}.codigo_establecimiento",
+                        "Un traslado entre establecimientos propios necesita el código del local de {$extremo}, "
+                            . 'el mismo que la empresa tiene declarado en su RUC.',
+                    );
+                }
+            }
+
             return;
         }
 
-        foreach (['partida' => $this->partida, 'llegada' => $this->llegada] as $extremo => $ubicacion) {
-            if ($ubicacion->codigoEstablecimiento === null) {
+        $admite = [
+            'partida' => $this->motivo->admiteEstablecimientoPartida(),
+            'llegada' => $this->motivo->admiteEstablecimientoLlegada(),
+        ];
+
+        foreach ($extremos as $extremo => $ubicacion) {
+            if ($ubicacion->codigoEstablecimiento !== null && ! $admite[$extremo]) {
+                $ajeno = $extremo === 'partida' ? 'de donde sale' : 'a donde llega';
+
                 throw ContratoInvalidoException::campo(
                     "traslado.{$extremo}.codigo_establecimiento",
-                    "Un traslado entre establecimientos propios necesita el código del local de {$extremo}, "
-                        . 'el mismo que la empresa tiene declarado en su RUC.',
+                    "Con el motivo «{$this->motivo->etiqueta()}», el punto {$ajeno} la mercadería no es un "
+                        . 'local de la empresa, así que no lleva código de establecimiento: solo su dirección.',
                 );
             }
         }

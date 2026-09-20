@@ -84,28 +84,33 @@ final readonly class Guia
     /**
      * Que las partes informadas se correspondan con el motivo.
      *
-     * Igual que en `Traslado`, se comprueba que no falte Y que no sobre. Un
-     * destinatario en un traslado entre locales propios significa casi siempre que el
-     * sistema origen copió el cliente de la venta anterior, y SUNAT responde a eso
-     * con el error 2554 —«el destinatario debe ser igual al remitente»— cuando ya no
-     * sirve de nada.
+     * Igual que en `Traslado`, se comprueba que no falte Y que no sobre, y las dos
+     * mitades tienen su rechazo correspondiente en SUNAT: el 2554 cuando se nombra a
+     * un tercero en un traslado que vuelve a casa, y el 2555 cuando la empresa se
+     * pone como destinataria de algo que está vendiendo. Los dos llegan con la guía
+     * ya numerada, así que se cazan aquí.
+     *
+     * El caso que más se da: el sistema origen copia el cliente de la venta anterior
+     * en una guía de compra o de traslado entre locales.
      */
     private function exigirPartesSegunMotivo(): void
     {
         $motivo = $this->traslado->motivo;
+        $regla  = $motivo->reglaDestinatario();
 
-        if ($motivo->destinatarioEsElRemitente()) {
-            if ($this->destinatario !== null) {
-                throw ContratoInvalidoException::campo(
-                    'destinatario',
-                    "Con el motivo «{$motivo->etiqueta()}» la mercadería no cambia de dueño: "
-                        . 'el destinatario es la propia empresa y lo pone el emisor.',
-                );
-            }
-        } elseif ($this->destinatario === null) {
+        if ($regla->prohibeTercero() && $this->destinatario !== null) {
             throw ContratoInvalidoException::campo(
                 'destinatario',
-                "Falta el destinatario: con el motivo «{$motivo->etiqueta()}» hay que decir quién recibe.",
+                "Con el motivo «{$motivo->etiqueta()}» la mercadería viene hacia la empresa: el "
+                    . 'destinatario es ella misma y lo pone el emisor. SUNAT rechaza (2554) que sea otro.',
+            );
+        }
+
+        if ($regla->exigeTercero() && $this->destinatario === null) {
+            throw ContratoInvalidoException::campo(
+                'destinatario',
+                "Falta el destinatario: con el motivo «{$motivo->etiqueta()}» la mercadería sale hacia "
+                    . 'alguien y hay que decir hacia quién. SUNAT rechaza (2555) que sea la propia empresa.',
             );
         }
 

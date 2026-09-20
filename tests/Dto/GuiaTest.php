@@ -191,6 +191,44 @@ final class GuiaTest extends TestCase
         );
     }
 
+    /**
+     * El caso que la primera versión del contrato daba por bueno y SUNAT rechaza:
+     * una compra dirigida a un tercero. La mercadería viene hacia la empresa.
+     */
+    #[Test]
+    public function rechaza_una_compra_dirigida_a_un_tercero(): void
+    {
+        try {
+            Guia::desdeArray(self::payload(['traslado' => ['motivo' => 'COMPRA', 'modalidad' => 'PRIVADO']]));
+            self::fail('Debería haber lanzado.');
+        } catch (ContratoInvalidoException $e) {
+            self::assertSame('destinatario', $e->campo);
+            self::assertStringContainsString('2554', $e->getMessage());
+        }
+    }
+
+    /** La misma compra, sin destinatario, sí vale: la recibe la propia empresa. */
+    #[Test]
+    public function acepta_una_compra_sin_destinatario(): void
+    {
+        $payload = self::payload(['traslado' => ['motivo' => 'COMPRA']]);
+        unset($payload['destinatario']);
+
+        self::assertNull(Guia::desdeArray($payload)->destinatario);
+    }
+
+    /** El vendedor ambulante puede salir con o sin comprador conocido. */
+    #[Test]
+    public function el_emisor_itinerante_admite_las_dos_formas(): void
+    {
+        $conCliente = self::payload(['traslado' => ['motivo' => 'EMISOR_ITINERANTE']]);
+        $sinCliente = $conCliente;
+        unset($sinCliente['destinatario']);
+
+        self::assertNotNull(Guia::desdeArray($conCliente)->destinatario);
+        self::assertNull(Guia::desdeArray($sinCliente)->destinatario);
+    }
+
     #[Test]
     public function rechaza_una_guia_sin_lineas(): void
     {

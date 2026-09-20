@@ -209,6 +209,52 @@ final class TrasladoTest extends TestCase
         ]));
     }
 
+    /**
+     * El código de establecimiento lleva el RUC de la empresa en el XML, así que solo
+     * cabe en el extremo que es suyo. SUNAT lo rechaza con el 3411, diciendo además
+     * en cuál de los dos te equivocaste.
+     */
+    #[Test]
+    public function rechaza_el_codigo_de_local_en_el_extremo_ajeno(): void
+    {
+        // Una venta llega a casa del cliente: ese extremo no es un local propio.
+        try {
+            self::privado(['llegada' => self::llegada('0002')]);
+            self::fail('Debería haber lanzado.');
+        } catch (ContratoInvalidoException $e) {
+            self::assertSame('traslado.llegada.codigo_establecimiento', $e->campo);
+        }
+
+        // Una compra sale de casa del proveedor: tampoco.
+        try {
+            self::privado([
+                'motivo'  => MotivoTraslado::COMPRA,
+                'partida' => self::partida('0000'),
+            ]);
+            self::fail('Debería haber lanzado.');
+        } catch (ContratoInvalidoException $e) {
+            self::assertSame('traslado.partida.codigo_establecimiento', $e->campo);
+        }
+    }
+
+    /** Y sí lo admite en el extremo propio, que es el sentido de la regla. */
+    #[Test]
+    public function admite_el_codigo_de_local_en_el_extremo_propio(): void
+    {
+        self::assertSame(
+            '0000',
+            self::privado(['partida' => self::partida('0000')])->partida->codigoEstablecimiento,
+        );
+
+        self::assertSame(
+            '0002',
+            self::privado([
+                'motivo'  => MotivoTraslado::COMPRA,
+                'llegada' => self::llegada('0002'),
+            ])->llegada->codigoEstablecimiento,
+        );
+    }
+
     #[Test]
     public function exige_un_peso_bruto_positivo(): void
     {
