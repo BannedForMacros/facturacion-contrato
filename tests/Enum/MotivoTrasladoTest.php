@@ -117,21 +117,27 @@ final class MotivoTrasladoTest extends TestCase
     }
 
     /**
-     * Importación y zona primaria piden datos aduaneros que todavía no se recogen.
-     * Ofrecerlos en un desplegable sería una trampa: se rechazarían siempre.
+     * Importación, exportación y zona primaria piden datos aduaneros que todavía no
+     * se recogen. Ofrecerlos en un desplegable sería una trampa: se rechazan siempre.
      */
     #[Test]
     public function los_motivos_aduaneros_no_se_ofrecen_todavia(): void
     {
-        self::assertFalse(MotivoTraslado::IMPORTACION->soportado());
-        self::assertFalse(MotivoTraslado::ZONA_PRIMARIA->soportado());
+        $aduaneros = [
+            MotivoTraslado::IMPORTACION,
+            MotivoTraslado::EXPORTACION,
+            MotivoTraslado::ZONA_PRIMARIA,
+        ];
 
         $soportados = MotivoTraslado::soportados();
 
-        self::assertNotContains(MotivoTraslado::IMPORTACION, $soportados);
-        self::assertNotContains(MotivoTraslado::ZONA_PRIMARIA, $soportados);
+        foreach ($aduaneros as $motivo) {
+            self::assertFalse($motivo->soportado(), "«{$motivo->value}» pide datos aduaneros.");
+            self::assertNotContains($motivo, $soportados);
+        }
+
         self::assertContains(MotivoTraslado::VENTA, $soportados);
-        self::assertCount(count(MotivoTraslado::cases()) - 2, $soportados);
+        self::assertCount(count(MotivoTraslado::cases()) - count($aduaneros), $soportados);
     }
 
     /** Solo «otros» obliga a explicarse; es el comodín y ese es su precio. */

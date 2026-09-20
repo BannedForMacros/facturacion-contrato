@@ -127,9 +127,10 @@ enum MotivoTraslado: string
     /**
      * ¿Puede el emisor producir hoy una guía válida con este motivo?
      *
-     * Importación y traslado a zona primaria piden datos aduaneros —puerto o
-     * aeropuerto de embarque, número de DAM— que todavía no se recogen en ninguna
-     * pantalla. SUNAT los rechaza por ello (errores 3440 y 3405), comprobado.
+     * Importación, exportación y traslado a zona primaria piden datos aduaneros
+     * —puerto o aeropuerto de embarque, número de DAM— que todavía no se recogen en
+     * ninguna pantalla. SUNAT los rechaza por ello, comprobado enviando los catorce
+     * motivos: 3440 los dos primeros, 3405 el tercero.
      *
      * Siguen en el catálogo porque existen y porque el día que se añadan esos campos
      * solo habrá que cambiar esta respuesta. Lo que NO se hace es ofrecerlos en un
@@ -139,8 +140,11 @@ enum MotivoTraslado: string
     public function soportado(): bool
     {
         return match ($this) {
-            self::IMPORTACION, self::ZONA_PRIMARIA => false,
-            default                                => true,
+            self::IMPORTACION,
+            self::EXPORTACION,
+            self::ZONA_PRIMARIA => false,
+
+            default             => true,
         };
     }
 
