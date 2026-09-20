@@ -135,6 +135,7 @@ una venta puede necesitar tres guías y una guía puede amparar cinco facturas.
 | `Dto\Traslado` | El viaje. Decide entre camioneta propia y flete contratado, y comprueba que no lleguen mezclados |
 | `Dto\Ubicacion` · `Vehiculo` · `Conductor` · `Transportista` | Las piezas del traslado |
 | `Dto\ItemGuia` · `ComprobanteRelacionado` | Qué se mueve y qué comprobantes lo respaldan |
+| `Dto\RespuestaGuia` | Lo que devuelve el emisor. `puedeTrasladar` viaja calculado, no se deduce |
 | `Enum\MotivoTraslado` | Por qué se mueve — y qué campos pide cada motivo |
 | `Enum\ReglaDestinatario` | Quién puede recibir según el motivo. Medido contra SUNAT, no deducido |
 | `Enum\ModalidadTraslado` | Quién lo lleva. Se decide guía por guía, no empresa por empresa |
