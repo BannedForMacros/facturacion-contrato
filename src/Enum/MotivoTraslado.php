@@ -27,7 +27,10 @@ enum MotivoTraslado: string
     /** Le vendí y se lo llevo. El caso corriente. */
     case VENTA = 'VENTA';
 
-    /** Le compré y lo recojo yo. La mercadería viaja hacia mi almacén. */
+    /**
+     * Le compré y lo recojo yo. La mercadería viaja HACIA mi almacén, así que el
+     * destinatario soy yo: SUNAT rechaza (2554) una compra dirigida a un tercero.
+     */
     case COMPRA = 'COMPRA';
 
     /** Le facturo a uno y se lo entrego a otro. Son dos partes distintas. */
@@ -42,7 +45,7 @@ enum MotivoTraslado: string
     /** Vuelve: me la devuelven, o la devuelvo yo al proveedor. */
     case DEVOLUCION = 'DEVOLUCION';
 
-    /** Recojo lo que mandé a transformar. */
+    /** Recojo lo que mandé a transformar. Vuelve a mí, así que el destinatario soy yo. */
     case RECOJO_BIENES_TRANSFORMADOS = 'RECOJO_BIENES_TRANSFORMADOS';
 
     /** Mando a transformar a un tercero y luego vuelve. */
@@ -57,7 +60,12 @@ enum MotivoTraslado: string
     /** Venta que el comprador todavía puede rechazar cuando la vea. */
     case VENTA_SUJETA_CONFIRMACION = 'VENTA_SUJETA_CONFIRMACION';
 
-    /** Vendedor ambulante que emite en ruta. */
+    /**
+     * Vendedor ambulante que emite en ruta.
+     *
+     * Admite las dos cosas: normalmente todavía no hay comprador —por eso sale a
+     * vender—, pero SUNAT también acepta que se informe uno.
+     */
     case EMISOR_ITINERANTE = 'EMISOR_ITINERANTE';
 
     /** Traslado a zona primaria aduanera. */
@@ -79,20 +87,74 @@ enum MotivoTraslado: string
     }
 
     /**
-     * ¿El destinatario es el propio remitente?
+     * Quién puede figurar como destinatario.
      *
-     * En estos dos casos la mercadería no cambia de dueño, solo de sitio. SUNAT lo
-     * comprueba (error 2554: «el Destinatario debe ser igual al remitente») y el
-     * formulario, en consecuencia, no debe pedir cliente: lo rellena solo con los
-     * datos de la empresa.
+     * NO SE DEDUJO DE LA DOCUMENTACIÓN, SE MIDIÓ. Cada motivo se envió dos veces al
+     * validador de SUNAT, una con un tercero y otra con la propia empresa, y esta
+     * tabla es el resultado literal de esas 28 respuestas. La versión anterior tenía
+     * dos motivos mal —compra y recojo de bienes transformados— y los dos habrían
+     * salido como rechazo 2554 con la guía ya numerada.
+     *
+     * La regla de fondo es sencilla en cuanto se ve: si la mercadería SALE de la
+     * empresa hacia alguien, hace falta ese alguien; si VIENE hacia la empresa, el
+     * destinatario es ella misma.
      */
-    public function destinatarioEsElRemitente(): bool
+    public function reglaDestinatario(): ReglaDestinatario
     {
         return match ($this) {
+            // Viene hacia la empresa: el destinatario es ella. Un tercero da 2554.
+            self::COMPRA,
             self::TRASLADO_ENTRE_ESTABLECIMIENTOS,
-            self::EMISOR_ITINERANTE => true,
-            default                 => false,
+            self::RECOJO_BIENES_TRANSFORMADOS => ReglaDestinatario::PROPIA_EMPRESA,
+
+            // Sale hacia alguien: hace falta decir hacia quién. La propia empresa da 2555.
+            self::VENTA,
+            self::VENTA_ENTREGA_TERCEROS,
+            self::VENTA_SUJETA_CONFIRMACION,
+            self::CONSIGNACION,
+            self::DEVOLUCION,
+            self::TRASLADO_PARA_TRANSFORMACION,
+            self::EXPORTACION => ReglaDestinatario::TERCERO,
+
+            // Las dos formas se aceptaron. No se fuerza ninguna.
+            self::EMISOR_ITINERANTE,
+            self::OTROS,
+            self::IMPORTACION,
+            self::ZONA_PRIMARIA => ReglaDestinatario::CUALQUIERA,
         };
+    }
+
+    /**
+     * ¿Puede el emisor producir hoy una guía válida con este motivo?
+     *
+     * Importación y traslado a zona primaria piden datos aduaneros —puerto o
+     * aeropuerto de embarque, número de DAM— que todavía no se recogen en ninguna
+     * pantalla. SUNAT los rechaza por ello (errores 3440 y 3405), comprobado.
+     *
+     * Siguen en el catálogo porque existen y porque el día que se añadan esos campos
+     * solo habrá que cambiar esta respuesta. Lo que NO se hace es ofrecerlos en un
+     * desplegable: dejar elegir un motivo que siempre va a rechazarse es una trampa
+     * para quien lo elige.
+     */
+    public function soportado(): bool
+    {
+        return match ($this) {
+            self::IMPORTACION, self::ZONA_PRIMARIA => false,
+            default                                => true,
+        };
+    }
+
+    /**
+     * Los motivos que hoy se pueden emitir, para poblar un desplegable.
+     *
+     * @return list<self>
+     */
+    public static function soportados(): array
+    {
+        return array_values(array_filter(
+            self::cases(),
+            static fn (self $m) => $m->soportado(),
+        ));
     }
 
     /**
@@ -129,12 +191,48 @@ enum MotivoTraslado: string
     /**
      * ¿Se mueve entre dos establecimientos declarados de la misma empresa?
      *
-     * Cuando es que sí, ambos extremos llevan el código de establecimiento anexo
-     * que la empresa tiene dado de alta en SUNAT, además de la dirección.
+     * Cuando es que sí, los dos extremos llevan el código del establecimiento anexo
+     * que la empresa tiene dado de alta en su RUC, además de la dirección. Sin ellos
+     * SUNAT rechaza este motivo.
      */
     public function exigeCodigoEstablecimiento(): bool
     {
         return $this === self::TRASLADO_ENTRE_ESTABLECIMIENTOS;
+    }
+
+    /*
+    |---------------------------------------------------------------------------
+    | Códigos de establecimiento: solo en el extremo que es tuyo
+    |---------------------------------------------------------------------------
+    |
+    | Otra regla medida, no deducida. El código de establecimiento anexo viaja en el
+    | XML con TU RUC como atributo, así que declararlo significa «este extremo es un
+    | local mío». Ponerlo donde no toca es el error 3411, y SUNAT dice en cuál de los
+    | dos extremos te has equivocado.
+    |
+    | Comprobado enviando las cuatro combinaciones:
+    |
+    |   venta  + establecimiento de partida .... ACEPTADA  (sale de mi almacén)
+    |   venta  + establecimiento de llegada .... 3411      (llega a casa del cliente)
+    |   compra + establecimiento de llegada .... ACEPTADA  (llega a mi almacén)
+    |   compra + establecimiento de partida .... 3411      (sale de casa del proveedor)
+    |
+    | O sea: el extremo que puedes identificar con un código es el que es tuyo, y cuál
+    | de los dos lo es se deduce del sentido del traslado —que es justo lo que ya dice
+    | `reglaDestinatario()`—. En un traslado entre locales propios los dos lo son.
+    */
+
+    /** ¿Puede declararse el código del local de PARTIDA? */
+    public function admiteEstablecimientoPartida(): bool
+    {
+        return $this->reglaDestinatario() !== ReglaDestinatario::PROPIA_EMPRESA
+            || $this === self::TRASLADO_ENTRE_ESTABLECIMIENTOS;
+    }
+
+    /** ¿Puede declararse el código del local de LLEGADA? */
+    public function admiteEstablecimientoLlegada(): bool
+    {
+        return $this->reglaDestinatario() === ReglaDestinatario::PROPIA_EMPRESA;
     }
 
     public function etiqueta(): string
